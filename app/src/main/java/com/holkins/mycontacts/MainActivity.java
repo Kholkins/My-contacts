@@ -1,18 +1,29 @@
 package com.holkins.mycontacts;
 
+import android.content.DialogInterface;
 import android.os.AsyncTask;
 import android.os.Bundle;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.recyclerview.widget.ItemTouchHelper;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import androidx.room.Room;
 
+import android.text.TextUtils;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.EditText;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 
@@ -29,19 +40,129 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
+        RecyclerView recyclerView = findViewById(R.id.recyclerView);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        recyclerView.setHasFixedSize(true);
+
+        contactAdapter = new ContactAdapter(contactArrayList, MainActivity.this);
+        recyclerView.setAdapter(contactAdapter);
+
         myContactsDatabase = Room.databaseBuilder(getApplicationContext(),
                 MyContactsDatabase.class, "ContactsDB").build();
 
         loadContacts();
 
+        new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0,
+                ItemTouchHelper.LEFT) {
+            @Override
+            public boolean onMove(@NonNull RecyclerView recyclerView,
+                                  @NonNull RecyclerView.ViewHolder viewHolder,
+                                  @NonNull RecyclerView.ViewHolder target) {
+                return false;
+            }
+
+            @Override
+            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+                Contact contact =
+                        contactArrayList.get(viewHolder.getAdapterPosition());
+                deleteContact(contact);
+            }
+        }).attachToRecyclerView(recyclerView);
+
         FloatingActionButton fab = findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
+                addAndEditContact(false, null, -1);
             }
         });
+    }
+
+    public void addAndEditContact(final boolean isUpdate, final Contact contact,
+                                  final int position) {
+
+        LayoutInflater layoutInflater = LayoutInflater
+                .from(getApplicationContext());
+        View view = layoutInflater.inflate(R.layout.add_edit_contact, null);
+
+        AlertDialog.Builder builder =
+                new AlertDialog.Builder(MainActivity.this);
+        builder.setView(view);
+
+        TextView contactTitleTextView =
+                view.findViewById(R.id.contactTitleTextView);
+        final EditText firstNameEditText =
+                view.findViewById(R.id.firstNameEditText);
+        final EditText lastNameEditText =
+                view.findViewById(R.id.lastNameEditText);
+        final EditText emailEditText =
+                view.findViewById(R.id.emailEditText);
+        final EditText phoneNumberEditText =
+                view.findViewById(R.id.phoneNumberEditText);
+
+        contactTitleTextView.setText(!isUpdate ? "Add Contact" : "Edit contact");
+
+        if (isUpdate && contact != null) {
+            firstNameEditText.setText(contact.getFirstName());
+            lastNameEditText.setText(contact.getLastName());
+            emailEditText.setText(contact.getEmail());
+            phoneNumberEditText.setText(contact.getPhoneNumber());
+        }
+
+        builder.setCancelable(false)
+                .setPositiveButton(isUpdate ? "Update" : "Save",
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialogInterface,
+                                                int i) {
+                                if (TextUtils.isEmpty(firstNameEditText.getText()
+                                        .toString())) {
+                                    Toast.makeText(MainActivity.this,
+                                            "Enter first name",
+                                            Toast.LENGTH_SHORT).show();
+                                } else if (TextUtils.isEmpty(lastNameEditText.getText()
+                                        .toString())) {
+                                    Toast.makeText(MainActivity.this,
+                                            "Enter last name",
+                                            Toast.LENGTH_SHORT).show();
+                                } else if (TextUtils.isEmpty(emailEditText.getText()
+                                        .toString())) {
+                                    Toast.makeText(MainActivity.this,
+                                            "Enter email",
+                                            Toast.LENGTH_SHORT).show();
+                                } else if (TextUtils.isEmpty(phoneNumberEditText.getText()
+                                        .toString())) {
+                                    Toast.makeText(MainActivity.this,
+                                            "Enter phone number",
+                                            Toast.LENGTH_SHORT).show();
+                                } else {
+
+                                    if (isUpdate && contact != null) {
+
+                                        updateContact(
+                                                firstNameEditText.getText().toString(),
+                                                lastNameEditText.getText().toString(),
+                                                emailEditText.getText().toString(),
+                                                phoneNumberEditText.getText().toString(),
+                                                position);
+
+                                    } else {
+
+                                        addContact(
+                                                firstNameEditText.getText().toString(),
+                                                lastNameEditText.getText().toString(),
+                                                emailEditText.getText().toString(),
+                                                phoneNumberEditText.getText().toString()
+                                        );
+
+                                    }
+
+                                }
+                            }
+                        });
+
+        AlertDialog alertDialog = builder.create();
+        alertDialog.show();
     }
 
     private void loadContacts() {
@@ -178,5 +299,4 @@ public class MainActivity extends AppCompatActivity {
             loadContacts();
         }
     }
-
 }
